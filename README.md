@@ -14,13 +14,13 @@ support component:
 
 ### Usage:
 
-init tracer
+#### init tracer
 
 ```go
 func NewTracer(serviceName string, addr string, fns ...optionFunc) (opentracing.Tracer, io.Closer, error) {
 ```
 
-start span
+#### start span
 
 ```go
 func handleLogic(ctx context.Context, params interface{}) error {
@@ -56,7 +56,7 @@ func httpGet(ctx context.Context, url string, data map[string]interface{}) (*req
 }
 ```
 
-gin middleware
+#### gin middleware
 
 ```go
 r := gin.Default()
@@ -65,13 +65,15 @@ r.GET("/ping", handlePing)
 r.Run(bindAddr)
 ```
 
-grpc interceptor
+#### grpc server interceptor
 
 ```go
 listener, err := net.Listen("tcp", bindAddr)
 grpcServer := grpc.NewServer(tracer.GrpcServerOption())
 grpcServer.Serve(listener)
 ```
+
+`For more usage, please see the code !!!`
 
 ### full example
 
