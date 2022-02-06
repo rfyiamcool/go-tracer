@@ -3,6 +3,7 @@ package tracer
 import (
 	"fmt"
 	"runtime"
+	"strings"
 	"sync"
 )
 
@@ -18,8 +19,17 @@ type stackEntry struct {
 	line     int
 }
 
-func GetFunc() string {
-	_, _, fname := getCallerCache(1)
+func GetFuncSkip(skip int) string {
+	return GetFunc(skip)
+}
+
+func GetFunc(ns ...int) string {
+	var num = 0
+	if len(ns) > 0 {
+		num = ns[0]
+	}
+
+	_, _, fname := getCallerCache(1 + num)
 	return fname
 }
 
@@ -97,8 +107,20 @@ func trimFilename(file string) string {
 	return trimString(file, '/', 2)
 }
 
-func trimFuncname(file string) string {
-	return trimString(file, '.', 2)
+// trimClassFuncname git.github.com/ocean/internal/controller.(*obj).run2 => controller.(*obj).run2
+func trimClassFuncname(name string) string {
+	i := strings.LastIndex(name, "/")
+	name = name[i+1:]
+	return name
+}
+
+// trimFuncname git.github.com/ocean/internal/controller.(*obj).run2 => (*obj).run2
+func trimFuncname(name string) string {
+	i := strings.LastIndex(name, "/")
+	name = name[i+1:]
+
+	i = strings.Index(name, ".")
+	return name[i+1:]
 }
 
 // trimString only retain shrot 2 level.

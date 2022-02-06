@@ -8,7 +8,6 @@ import (
 	"github.com/opentracing/opentracing-go/ext"
 	"github.com/opentracing/opentracing-go/log"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/grpclog"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -116,6 +115,10 @@ func ClientInterceptor() grpc.UnaryClientInterceptor {
 // ServerInterceptor grpc server wrapper
 func ServerInterceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
+		if gtracer == nil {
+			return handler(ctx, req)
+		}
+
 		md, ok := metadata.FromIncomingContext(ctx)
 		if !ok {
 			md = metadata.New(nil)
@@ -125,7 +128,6 @@ func ServerInterceptor() grpc.UnaryServerInterceptor {
 		var span opentracing.Span
 
 		if err != nil && err != opentracing.ErrSpanContextNotFound {
-			grpclog.Errorf("extract from metadata err: %v", err)
 			span = StartSpan(info.FullMethod)
 		} else {
 			span = gtracer.StartSpan(

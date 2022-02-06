@@ -303,22 +303,25 @@ type SpanEntry struct {
 }
 
 func (se *SpanEntry) String() string {
-	return se.String()
+	return se.jaegerSpanCtx.String()
 }
 
 func (se *SpanEntry) IsNull() bool {
 	if se.TraceID == "" {
-		return false
+		return true
 	}
 
-	return true
+	return false
 }
 
 // GetSpanEntryFromCtx
 func GetSpanEntryFromCtx(ctx context.Context) SpanEntry {
 	span := opentracing.SpanFromContext(ctx)
-	sc, ok := span.Context().(jaeger.SpanContext)
+	if span == nil {
+		return SpanEntry{}
+	}
 
+	sc, ok := span.Context().(jaeger.SpanContext)
 	if ok {
 		se := SpanEntry{
 			jaegerSpanCtx: sc,
