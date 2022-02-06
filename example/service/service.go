@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"math/rand"
@@ -16,12 +17,18 @@ import (
 )
 
 var (
-	bindAddr    = ":8181"
 	serviceName = "service"
-	traceAddr   = "172.16.0.46:6831"
 
-	gclient pb.UserServiceClient
+	gclient   pb.UserServiceClient
+	traceAddr string
+	bindAddr  string
 )
+
+func init() {
+	flag.StringVar(&traceAddr, "trace-addr", "127.0.0.1:6831", "tracer agent address")
+	flag.StringVar(&bindAddr, "bind-addr", ":8181", "input bind address")
+	flag.Parse()
+}
 
 func main() {
 	_, _, err := tracer.NewTracer(serviceName, traceAddr)

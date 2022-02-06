@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"math/rand"
 	"net/http"
@@ -14,10 +15,17 @@ import (
 )
 
 var (
-	bindAddr    = ":8080"
 	serviceName = "gateway"
-	traceAddr   = "172.16.0.46:6831"
+
+	bindAddr  string
+	traceAddr string
 )
+
+func init() {
+	flag.StringVar(&traceAddr, "trace-addr", "127.0.0.1:6831", "tracer agent address")
+	flag.StringVar(&bindAddr, "bind-addr", ":3001", "input bind address")
+	flag.Parse()
+}
 
 func main() {
 	_, _, err := tracer.NewTracer(serviceName, traceAddr, tracer.WithQueueSize(100000))

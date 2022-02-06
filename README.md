@@ -96,22 +96,22 @@ bash example/start_jaeger.sh
 
 #### start servers
 
-1. go run example/gateway/gw.go
-2. go run example/service/service.go
-3. go run example/cache/cache.go
+1. go run example/gateway/gw.go --trace-addr=127.0.0.1:6381
+2. go run example/service/service.go --trace-addr=127.0.0.1:6381
+3. go run example/cache/cache.go --trace-addr=127.0.0.1:6381
 
 #### send request to gateway
 
 Three ways to start the client !!!
 
-- go run example/client/client.go
+- go run example/client/client.go --trace-addr=127.0.0.1:6381
 - bash example/curl.sh, http request with custom x-trace-id.
 - curl -vvv 127.0.0.1:8080/ping
 
 ```sh
 $ > bash example/curl.sh
 
-x-trace-id ===>  73283a59e2a54dfd:73283a59e2a54dfd:0000000000000000:1
+x-trace-id ===>  230b497c161e83e9:230b497c161e83e9:0000000000000000:1
 
 *   Trying 127.0.0.1:8080...
 * Connected to 127.0.0.1 (127.0.0.1) port 8080 (#0)
@@ -119,22 +119,24 @@ x-trace-id ===>  73283a59e2a54dfd:73283a59e2a54dfd:0000000000000000:1
 > Host: 127.0.0.1:8080
 > User-Agent: curl/7.71.1
 > Accept: */*
-> x-trace-id: 73283a59e2a54dfd:73283a59e2a54dfd:0000000000000000:1
-
+> x-trace-id: 230b497c161e83e9:230b497c161e83e9:0000000000000000:1
 
 * Mark bundle as not supporting multiuse
 < HTTP/1.1 200 OK
 < Content-Type: application/json; charset=utf-8
-< Span-Id: 01d17b2f2779d185
-< Trace-Id: 73283a59e2a54dfd
-< Date: Wed, 02 Feb 2022 05:08:00 GMT
+< Span-Id: 07f59dea1f92f1dd
+< Trace-Id: 230b497c161e83e9
+< Date: Sun, 06 Feb 2022 01:29:55 GMT
 < Content-Length: 18
 <
 * Connection #0 to host 127.0.0.1 left intact
+
 {"message":"pong"}%
 ```
 
 #### query trace in UI
 
-1. open `http://${jaeger_query_addr}:16686/search`
-2. input trace-id in jaeger ui
+1. open `http://${jaeger_query_addr}:16686/search` in chrome browser.
+2. input trace-id in jaeger ui.
+
+![](docs/jaeger_get_trace.jpg)

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"log"
 	"math/rand"
 	"net"
@@ -16,10 +17,17 @@ import (
 )
 
 var (
-	bindAddr    = "0.0.0.0:3001"
-	traceAddr   = "172.16.0.46:6831"
 	serviceName = "cache_server"
+
+	bindAddr  string
+	traceAddr string
 )
+
+func init() {
+	flag.StringVar(&traceAddr, "trace-addr", "127.0.0.1:6831", "tracer agent address")
+	flag.StringVar(&bindAddr, "bind-addr", "0.0.0.0:3001", "input bind address")
+	flag.Parse()
+}
 
 type userCache struct{}
 

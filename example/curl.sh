@@ -35,7 +35,9 @@ function make_xid() {
 
 function main() {
     xid=`make_xid`
+    echo ""
     echo "x-trace-id ===> " $xid
+    echo ""
 
     curl -vvv -H "x-trace-id: $xid" 127.0.0.1:8080/ping
 }

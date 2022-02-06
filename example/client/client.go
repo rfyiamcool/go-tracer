@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -13,10 +14,14 @@ import (
 )
 
 var (
-	bindAddr    = ":8080"
 	serviceName = "client"
-	traceAddr   = "172.16.0.46:6831"
+	traceAddr   = "127.0.0.1:6831"
 )
+
+func init() {
+	flag.StringVar(&traceAddr, "trace-addr", "127.0.0.1:6831", "tracer agent address")
+	flag.Parse()
+}
 
 func main() {
 	_, _, err := tracer.NewTracer(serviceName, traceAddr, tracer.WithQueueSize(100000), tracer.WithFlushInterval(1))
