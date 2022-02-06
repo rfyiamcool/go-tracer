@@ -87,6 +87,15 @@ func NewHttpSender(url string) jaeger.Transport {
 	)
 }
 
+type Config struct {
+	ServiceName         string `yaml:"service_name"`
+	Address             string `yaml:"addr"`
+	QueueSize           int    `yaml:"queue_size"`
+	BufferFlushInterval int    `yaml:"buffer_flush_interval"`
+	MaxTagLength        int    `yaml:"max_tag_length"`
+	ProtoKind           int    `yaml:"proto_kind"`
+}
+
 type Option struct {
 	samplerConfig  *jaegercfg.SamplerConfig
 	reporterConfig *jaegercfg.ReporterConfig
@@ -108,6 +117,7 @@ func defaultOption() *Option {
 
 type optionFunc func(*Option) error
 
+// WithSender
 func WithSender(sender jaeger.Transport) optionFunc {
 	return func(o *Option) error {
 		o.sender = sender
@@ -115,14 +125,27 @@ func WithSender(sender jaeger.Transport) optionFunc {
 	}
 }
 
+// WithProtoKind
+func WithProtoKind(kind int) optionFunc {
+	return func(o *Option) error {
+		o.protoKind = kind
+		return nil
+	}
+}
+
 // WithQueueSize queue size, defualt: 10000
 func WithQueueSize(size int) optionFunc {
 	return func(o *Option) error {
+		def := 10000
+		if size <= 0 || size > def {
+			size = def
+		}
 		o.queueSize = size
 		return nil
 	}
 }
 
+// WithFlushInterval
 func WithFlushInterval(ms int) optionFunc {
 	return func(o *Option) error {
 		var (
@@ -141,13 +164,19 @@ func WithFlushInterval(ms int) optionFunc {
 	}
 }
 
+// WithMaxTagLength
 func WithMaxTagLength(size int) optionFunc {
 	return func(o *Option) error {
+		def := 256
+		if size <= 0 || size > def {
+			size = def
+		}
 		o.maxTagLength = size
 		return nil
 	}
 }
 
+// WithSampler
 func WithSampler(sampler *jaegercfg.SamplerConfig) optionFunc {
 	return func(o *Option) error {
 		o.samplerConfig = sampler
@@ -155,6 +184,7 @@ func WithSampler(sampler *jaegercfg.SamplerConfig) optionFunc {
 	}
 }
 
+// WithReporter
 func WithReporter(cfg *jaegercfg.ReporterConfig) optionFunc {
 	return func(o *Option) error {
 		o.reporterConfig = cfg
@@ -162,8 +192,27 @@ func WithReporter(cfg *jaegercfg.ReporterConfig) optionFunc {
 	}
 }
 
+// NewTracerWithConfig
+func NewTracerWithConfig(cfg *Config) (opentracing.Tracer, io.Closer, error) {
+	return NewTracer(
+		cfg.ServiceName,
+		cfg.Address,
+		WithFlushInterval(cfg.BufferFlushInterval),
+		WithMaxTagLength(cfg.MaxTagLength),
+		WithQueueSize(cfg.QueueSize),
+		WithProtoKind(cfg.ProtoKind),
+	)
+}
+
 // NewTracer
 func NewTracer(serviceName string, addr string, fns ...optionFunc) (opentracing.Tracer, io.Closer, error) {
+	if serviceName == "" {
+		return nil, nil, errors.New("invalid service name")
+	}
+	if addr == "" {
+		return nil, nil, errors.New("invalid address")
+	}
+
 	option := defaultOption()
 	for _, fn := range fns {
 		err := fn(option)
