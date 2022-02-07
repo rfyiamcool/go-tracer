@@ -121,7 +121,7 @@ grpcServer.Serve(listener)
 
 `For more usage, please see the code !!!`
 
-### full example
+### OpenTracing Example 
 
 [tracer code example](http://git.hualala.com/gopkg/tracer/example/)
 
@@ -186,3 +186,8 @@ x-trace-id ===>  230b497c161e83e9:230b497c161e83e9:0000000000000000:1
 2. input trace-id in jaeger ui.
 
 ![](docs/jaeger_get_trace.jpg)
+
+### OpenTelemetry Example 
+
+1. go run otel/example/otel.go
+2. input trace-id in jaeger ui.
