@@ -1,18 +1,64 @@
 ## tracer
 
-easy tracer api for jaeger
+simple trace sdk for OpenTracing and OpenTelemetry.
 
 ### Feature:
 
 support component:
 
+- simple api
 - http middleware
 - grpc middleware
 - redis hook
-- function middleware
-- easy api
+- function span
 
-### Usage:
+### OpenTelemetry Usage:
+
+#### init tracer
+
+```go
+import (
+	"github.com/rfyiamcool/go-tracer/otel"
+)
+
+func main() {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	tp, err := otel.New(serviceNmae, url)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer tp.Shutdown(context.Background())
+
+	cctx, span := otel.Start(ctx, "main")
+	defer span.End()
+
+	foot(cctx)
+}
+```
+
+#### start span
+
+```go
+func foot(ctx context.Context) {
+	cctx, span := otel.Start(ctx, "foot")
+	defer span.End()
+
+	time.Sleep(300 * time.Millisecond)
+	bar(cctx)
+}
+
+func bar(ctx context.Context) {
+	cctx, span := otel.Start(ctx, "bar")
+	defer span.End()
+
+	time.Sleep(500 * time.Millisecond)
+	parse(cctx)
+}
+```
+
+### OpenTracing Usage:
 
 #### init tracer
 
