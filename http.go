@@ -2,7 +2,6 @@ package tracer
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"time"
 
@@ -55,10 +54,10 @@ func TracingMiddleware(name string) gin.HandlerFunc {
 		serverSpan.SetTag("http.request.time", time.Now().Format(time.RFC3339))
 		serverSpan.SetTag("http.headers", marshal(c.Request.Header))
 
-		body, err := ioutil.ReadAll(c.Request.Body)
-		if err == nil {
-			opentracing.Tag{Key: "http.request.body", Value: string(body)}.Set(serverSpan)
-		}
+		// body, err := ioutil.ReadAll(c.Request.Body)
+		// if err == nil {
+		// 	opentracing.Tag{Key: "http.request.body", Value: string(body)}.Set(serverSpan)
+		// }
 
 		traceID, spanID := GetTraceSpanIDs(serverSpan)
 		c.Writer.Header().Set(HeaderTraceID, traceID)

@@ -38,22 +38,6 @@ func main() {
 	log.Printf("trace-id %s", span.SpanContext().TraceID().String())
 }
 
-func parse(ctx context.Context) {
-	header := make(http.Header)
-	header.Add("user-agent", "chrome 1.1.1")
-
-	// inject
-	otel.InjectHttpHeader(ctx, header)
-	fmt.Println("inject header: ", header)
-
-	// extract
-	span := otel.ExtractHttpHeader(context.Background(), header)
-	traceID := span.SpanContext().TraceID()
-	fmt.Println("extract header: ", traceID)
-
-	time.Sleep(100 * time.Millisecond)
-}
-
 func foot(ctx context.Context) {
 	cctx, span := otel.Start(ctx, "foot")
 	defer span.End()
@@ -68,4 +52,20 @@ func bar(ctx context.Context) {
 
 	time.Sleep(500 * time.Millisecond)
 	parse(cctx)
+}
+
+func parse(ctx context.Context) {
+	header := make(http.Header)
+	header.Add("user-agent", "chrome 1.1.1")
+
+	// inject
+	otel.InjectHttpHeader(ctx, header)
+	fmt.Println("inject header: ", header)
+
+	// extract
+	_, span := otel.ExtractHttpHeader(context.Background(), header)
+	traceID := span.SpanContext().TraceID()
+	fmt.Println("extract header: ", traceID)
+
+	time.Sleep(100 * time.Millisecond)
 }
