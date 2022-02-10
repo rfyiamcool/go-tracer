@@ -25,33 +25,33 @@ type config struct {
 }
 
 // Option specifies instrumentation configuration options.
-type Option interface {
+type TracerOption interface {
 	apply(*config)
 }
 
-type optionFunc func(*config)
+type tracerOptionFunc func(*config)
 
-func (o optionFunc) apply(c *config) {
+func (o tracerOptionFunc) apply(c *config) {
 	o(c)
 }
 
-func WithPropagators(propagators propagation.TextMapPropagator) Option {
-	return optionFunc(func(cfg *config) {
+func WithPropagators(propagators propagation.TextMapPropagator) TracerOption {
+	return tracerOptionFunc(func(cfg *config) {
 		if propagators != nil {
 			cfg.Propagators = propagators
 		}
 	})
 }
 
-func WithTracerProvider(provider oteltrace.TracerProvider) Option {
-	return optionFunc(func(cfg *config) {
+func WithTracerProvider(provider oteltrace.TracerProvider) TracerOption {
+	return tracerOptionFunc(func(cfg *config) {
 		if provider != nil {
 			cfg.TracerProvider = provider
 		}
 	})
 }
 
-func GinMiddleware(service string, opts ...Option) gin.HandlerFunc {
+func GinMiddleware(service string, opts ...TracerOption) gin.HandlerFunc {
 	cfg := config{}
 	for _, opt := range opts {
 		opt.apply(&cfg)
