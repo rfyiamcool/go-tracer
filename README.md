@@ -22,39 +22,55 @@ import (
 )
 
 func main() {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	tp, err := otel.New(serviceNmae, url)
+	tp, err := otel.New(serviceName, otel.WithMode(otel.ModeCollectorHttp), otel.WithAddress(url), otel.WithQueueSize(3000))
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer tp.Shutdown(context.Background())
 
-	cctx, span := otel.Start(ctx, "main")
-	defer span.End()
-
-	foot(cctx)
+	...
 }
 ```
 
 #### start span
 
 ```go
-func foot(ctx context.Context) {
-	cctx, span := otel.Start(ctx, "foot")
+func hanldePost(ctx context.Context) {
+	cctx, span := otel.StartSpan(ctx, "post")
 	defer span.End()
 
-	time.Sleep(300 * time.Millisecond)
-	bar(cctx)
+	handleGrpcService(cctx, 1111)
 }
 
-func bar(ctx context.Context) {
-	cctx, span := otel.Start(ctx, "bar")
+func handleGrpcService(ctx context.Context, uid int) {
+	cctx, span := otel.StartSpan(ctx, "handleGrpcService")
 	defer span.End()
 
-	time.Sleep(500 * time.Millisecond)
-	parse(cctx)
+	// inject header, fill biz header
+	md := metadata.Pairs("key-111", "val-111")
+	md.Set("key-222", "val-222")
+
+	// request
+	var rheader metadata.MD
+	resp, err := gclient.GetUserInfo(
+		cctx,
+		&pb.UserRequest{ID: int32(uid)},
+		grpc.Header(&rheader),
+	)
+
+	// tag
+	span.SetAttributes("method", "GetUserInfo")
+
+	// log
+	span.AddEventa("req.uid", uid)
+	span.AddEventa("resp.body", md)
+	span.AddEventa("resp.body", resp)
+	span.AddEventa("resp.error", err)
+
+	if err != nil {
+		fmt.Println("grpc request failed, err: ", err.Error())
+		return
+	}
 }
 ```
 
@@ -180,6 +196,15 @@ x-trace-id ===>  230b497c161e83e9:230b497c161e83e9:0000000000000000:1
 {"message":"pong"}%
 ```
 
+Starting processes one by one is very cumbersome, you can use `goreman` start these processes, ‎😃 oh, what is `goreman`? how to use `goreman`? click the project > [https://github.com/mattn/goreman](https://github.com/mattn/goreman)
+
+```sh
+go install github.com/mattn/goreman@latest
+
+cat Procfile
+goreman -f Procfile start
+```
+
 #### query trace in UI
 
 1. open `http://${jaeger_query_addr}:16686/search` in chrome browser.
@@ -189,5 +214,11 @@ x-trace-id ===>  230b497c161e83e9:230b497c161e83e9:0000000000000000:1
 
 ### OpenTelemetry Example 
 
-1. go run otel/example/otel.go
-2. input trace-id in jaeger ui.
+Please follow `opentracing` Example Usage.
+
+```sh
+cd otel
+
+cat Procfile
+goreman -f Procfile start
+```

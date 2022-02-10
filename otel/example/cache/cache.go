@@ -59,7 +59,7 @@ func (s *userCache) handleClean(ctx context.Context) {
 }
 
 func main() {
-	tp, err := otel.New(serviceName, url)
+	tp, err := otel.New(serviceName, otel.WithMode(otel.ModeCollectorHttp), otel.WithAddress(url), otel.WithQueueSize(3000))
 	if err != nil {
 		log.Fatal(err)
 	}

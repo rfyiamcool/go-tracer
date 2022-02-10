@@ -23,7 +23,7 @@ var (
 
 func init() {
 	flag.StringVar(&traceAddr, "trace-addr", "127.0.0.1:6831", "tracer agent address")
-	flag.StringVar(&bindAddr, "bind-addr", ":3001", "input bind address")
+	flag.StringVar(&bindAddr, "bind-addr", ":8080", "input bind address")
 	flag.Parse()
 }
 

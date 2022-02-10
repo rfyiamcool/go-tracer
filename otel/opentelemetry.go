@@ -3,10 +3,12 @@ package otel
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -28,17 +30,152 @@ var (
 	hostname, _       = os.Hostname()
 	tracerProvider    *tracesdk.TracerProvider
 	defaultPropagator propagation.TextMapPropagator
+
+	maxQueueSize = 5000
 )
 
-// New
-func New(serviceName string, url string) (*tracesdk.TracerProvider, error) {
-	exp, err := jaeger.New(jaeger.WithCollectorEndpoint(jaeger.WithEndpoint(url)))
+const (
+	ModeAgentUdp      = "udp"
+	ModeCollectorHttp = "http"
+)
+
+type Config struct {
+	Mode      string `yaml:"mode"`
+	Address   string `yaml:"addr"`
+	QueueSize int    `yaml:"queue_size"`
+
+	httpClient *http.Client
+}
+
+func (cfg *Config) validate() error {
+	if cfg.Mode == "" {
+		return errors.New("invalid mode")
+	}
+	if cfg.Address == "" {
+		return errors.New("invalid address")
+	}
+	return nil
+}
+
+func defaultConfig() *Config {
+	return &Config{
+		Mode:       ModeAgentUdp,
+		Address:    "127.0.0.1:6831",
+		QueueSize:  maxQueueSize,
+		httpClient: http.DefaultClient,
+	}
+}
+
+type optionFunc func(*Config) error
+
+// WithQueueSize queue size, default: 5000
+func WithQueueSize(size int) optionFunc {
+	return func(o *Config) error {
+		if size <= 0 || size > maxQueueSize {
+			size = maxQueueSize
+		}
+		o.QueueSize = size
+		return nil
+	}
+}
+
+// WithMode, udp or http
+func WithMode(mode string) optionFunc {
+	return func(o *Config) error {
+		if mode == "" {
+			mode = ModeAgentUdp
+		}
+		o.Mode = mode
+		return nil
+	}
+}
+
+// WithAddress
+func WithAddress(addr string) optionFunc {
+	return func(o *Config) error {
+		if addr == "" {
+			return errors.New("invalid address")
+		}
+
+		o.Address = addr
+		return nil
+	}
+}
+
+// WithHttpClient
+func WithHttpClient(client *http.Client) optionFunc {
+	return func(o *Config) error {
+		if client == nil {
+			client = http.DefaultClient
+		}
+		o.httpClient = client
+		return nil
+	}
+}
+
+// NewWithConfig
+func NewWithConfig(serviceName string, cfg *Config) (*tracesdk.TracerProvider, error) {
+	err := cfg.validate()
 	if err != nil {
 		return nil, err
 	}
 
+	return New(
+		serviceName,
+		WithMode(cfg.Mode),
+		WithAddress(cfg.Address),
+		WithQueueSize(cfg.QueueSize),
+		WithHttpClient(cfg.httpClient),
+	)
+}
+
+// New
+func New(serviceName string, fns ...optionFunc) (*tracesdk.TracerProvider, error) {
+	var (
+		exporter *jaeger.Exporter
+		err      error
+	)
+
+	cfg := defaultConfig()
+	for _, fn := range fns {
+		err := fn(cfg)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	switch cfg.Mode {
+	case ModeAgentUdp:
+		list := strings.Split(cfg.Address, ":")
+		if len(list) != 2 {
+			return nil, errors.New("invalid udp address")
+		}
+
+		exporter, err = jaeger.New(
+			jaeger.WithAgentEndpoint(jaeger.WithAgentHost(list[0]), jaeger.WithAgentPort(list[1])),
+		)
+		if err != nil {
+			return nil, err
+		}
+
+	case ModeCollectorHttp:
+		if !strings.HasPrefix(cfg.Address, "http://") {
+			return nil, errors.New("invalid http address")
+		}
+
+		exporter, err = jaeger.New(jaeger.WithCollectorEndpoint(jaeger.WithEndpoint(cfg.Address), jaeger.WithHTTPClient(cfg.httpClient)))
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	tracerProvider = tracesdk.NewTracerProvider(
-		tracesdk.WithBatcher(exp),
+		tracesdk.WithBatcher(exporter,
+			tracesdk.WithMaxQueueSize(cfg.QueueSize),
+			tracesdk.WithBatchTimeout(tracesdk.DefaultBatchTimeout),
+			tracesdk.WithExportTimeout(tracesdk.DefaultExportTimeout),
+			tracesdk.WithMaxExportBatchSize(tracesdk.DefaultMaxExportBatchSize),
+		),
 		tracesdk.WithSampler(tracesdk.AlwaysSample()),
 		tracesdk.WithResource(resource.NewWithAttributes(
 			semconv.SchemaURL,
@@ -46,6 +183,7 @@ func New(serviceName string, url string) (*tracesdk.TracerProvider, error) {
 			attribute.String("hostname", hostname),
 		)),
 	)
+
 	defaultPropagator = propagation.NewCompositeTextMapPropagator(
 		propagation.TraceContext{},
 		propagation.Baggage{},
@@ -62,7 +200,7 @@ func Shutdown(ctx context.Context) {
 	cctx, cancel := context.WithTimeout(ctx, time.Second*5)
 	defer cancel()
 
-	if err := GetProvider().Shutdown(cctx); err != nil {
+	if err := GetTracerProvider().Shutdown(cctx); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -72,14 +210,24 @@ func GetTracer() trace.Tracer {
 	return otel.GetTracerProvider().Tracer("")
 }
 
-// GetProvider
-func GetProvider() *tracesdk.TracerProvider {
+// GetTracerProvider
+func GetTracerProvider() *tracesdk.TracerProvider {
 	return tracerProvider
 }
 
 // GetPropagator
 func GetPropagator() propagation.TextMapPropagator {
 	return defaultPropagator
+}
+
+// SetTracerProvider
+func SetTracerProvider(provider *tracesdk.TracerProvider) {
+	tracerProvider = provider
+}
+
+// SetPropagator
+func SetPropagator(pro propagation.TextMapPropagator) {
+	defaultPropagator = pro
 }
 
 // Start
@@ -234,12 +382,12 @@ func (sp *Span) SetName(name string) {
 	sp.span.SetName(name)
 }
 
-func (sp *Span) TraceID() {
-	sp.span.TracerProvider()
+func (sp *Span) TraceID() string {
+	return sp.span.SpanContext().TraceID().String()
 }
 
-func (sp *Span) SpanID(name string) {
-	sp.span.SpanContext().SpanID()
+func (sp *Span) SpanID() string {
+	return sp.span.SpanContext().SpanID().String()
 }
 
 func toString(val interface{}) string {
