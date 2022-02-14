@@ -15,8 +15,6 @@ import (
 const (
 	tracerKey  = "otel-go-contrib-tracer"
 	tracerName = "go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
-
-	HeaderTraceID = "trace-id"
 )
 
 type config struct {
