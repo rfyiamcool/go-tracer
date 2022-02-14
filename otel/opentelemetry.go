@@ -2,28 +2,21 @@ package otel
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"strings"
-	"sync"
 	"time"
 
-	"github.com/spf13/cast"
-	grpcotel "go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/exporters/jaeger"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
 	tracesdk "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.7.0"
 	"go.opentelemetry.io/otel/trace"
-	"google.golang.org/grpc"
 )
 
 var (
@@ -37,6 +30,9 @@ var (
 const (
 	ModeAgentUdp      = "udp"
 	ModeCollectorHttp = "http"
+
+	HeaderTraceID = "trace-id"
+	HeaderSpanID  = "span-id"
 )
 
 type Config struct {
@@ -230,6 +226,30 @@ func SetPropagator(pro propagation.TextMapPropagator) {
 	defaultPropagator = pro
 }
 
+// GetTraceIDFromCtx
+func GetTraceIDFromCtx(ctx context.Context) string {
+	span := trace.SpanFromContext(ctx)
+	return span.SpanContext().TraceID().String()
+}
+
+// GetTraceSpanIDsFromCtx
+func GetTraceSpanIDsFromCtx(ctx context.Context) (string, string) {
+	span := trace.SpanFromContext(ctx)
+	return span.SpanContext().TraceID().String(), span.SpanContext().SpanID().String()
+}
+
+// SpanFromContext
+func SpanFromContext(ctx context.Context) trace.Span {
+	span := trace.SpanFromContext(ctx)
+	return span
+}
+
+// SpanContextFromContext
+func SpanContextFromContext(ctx context.Context) trace.SpanContext {
+	span := trace.SpanFromContext(ctx)
+	return span.SpanContext()
+}
+
 // Start
 func Start(ctx context.Context, operation string) (context.Context, trace.Span) {
 	ctx, span := otel.GetTracerProvider().Tracer("").Start(ctx, operation)
@@ -274,132 +294,4 @@ func ContextToString(ctx context.Context) string {
 	header := make(http.Header)
 	InjectHttpHeader(ctx, header)
 	return header.Get(headerTraceparent)
-}
-
-// StreamClientInterceptor for grpc
-func StreamClientInterceptor() grpc.StreamClientInterceptor {
-	return grpcotel.StreamClientInterceptor()
-}
-
-// StreamServerInterceptor for grpc
-func StreamServerInterceptor() grpc.StreamServerInterceptor {
-	return grpcotel.StreamServerInterceptor()
-}
-
-// UnaryClientInterceptor for grpc
-func UnaryClientInterceptor() grpc.UnaryClientInterceptor {
-	return grpcotel.UnaryClientInterceptor()
-}
-
-// UnaryServerInterceptor for grpc
-func UnaryServerInterceptor() grpc.UnaryServerInterceptor {
-	return grpcotel.UnaryServerInterceptor()
-}
-
-// GrpcDialOption grpc client option
-func GrpcUnaryDialOption() grpc.DialOption {
-	return grpc.WithUnaryInterceptor(UnaryClientInterceptor())
-}
-
-// GrpcUnaryServerOption grpc server option
-func GrpcUnaryServerOption() grpc.ServerOption {
-	return grpc.UnaryInterceptor(UnaryServerInterceptor())
-}
-
-type Span struct {
-	ctx  context.Context
-	span trace.Span
-
-	once sync.Once
-}
-
-func newSpan(ctx context.Context, span trace.Span) *Span {
-	return &Span{
-		ctx:  ctx,
-		span: span,
-	}
-}
-
-func (sp *Span) DeferEnd() func() {
-	return func() {
-		sp.once.Do(func() {
-			sp.span.End()
-		})
-	}
-}
-
-func (sp *Span) End() {
-	sp.once.Do(func() {
-		sp.span.End()
-	})
-}
-
-func (sp *Span) Span() trace.Span {
-	return sp.span
-}
-
-func (sp *Span) SpanContext() trace.SpanContext {
-	return sp.span.SpanContext()
-}
-
-func (sp *Span) AddEvent(val interface{}) {
-	sp.span.AddEvent(toString(val))
-}
-
-func (sp *Span) AddJsonEvent(val interface{}) {
-	bs, _ := json.Marshal(val)
-	sp.span.AddEvent(string(bs))
-}
-
-func (sp *Span) AddEventa(args ...interface{}) {
-	bs, _ := json.Marshal(args)
-	sp.span.AddEvent(string(bs))
-}
-
-func (sp *Span) AddEventf(format string, args ...interface{}) {
-	sp.span.AddEvent(fmt.Sprintf(format, args...))
-}
-
-func (sp *Span) SetAttributes(key string, val interface{}) {
-	sp.SetTag(key, val)
-}
-
-func (sp *Span) SetTag(key string, val interface{}) {
-	out := toString(val)
-	sp.span.SetAttributes(attribute.String(key, out))
-}
-
-func (sp *Span) SetJsonTag(key string, val interface{}) {
-	bs, _ := json.Marshal(val)
-	sp.span.SetAttributes(attribute.String(key, string(bs)))
-}
-
-func (sp *Span) SetStatus(code codes.Code, description string) {
-	sp.span.SetStatus(code, description)
-}
-
-func (sp *Span) SetName(name string) {
-	sp.span.SetName(name)
-}
-
-func (sp *Span) TraceID() string {
-	return sp.span.SpanContext().TraceID().String()
-}
-
-func (sp *Span) SpanID() string {
-	return sp.span.SpanContext().SpanID().String()
-}
-
-func toString(val interface{}) string {
-	out, err := cast.ToStringE(val)
-	if err != nil {
-		bs, err := json.Marshal(val)
-		if err != nil {
-			out = fmt.Sprintf("trace marshal failed, val: %v", val)
-		} else {
-			out = string(bs)
-		}
-	}
-
-	return out
 }
