@@ -11,6 +11,8 @@ support component:
 - grpc middleware
 - redis hook
 - function span
+- goroutine stack caller cache
+- sorted TraceID generator
 
 ### OpenTelemetry Usage:
 
