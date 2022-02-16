@@ -2,6 +2,8 @@
 
 simple trace sdk for OpenTracing and OpenTelemetry.
 
+[uber jaeger kit install document](./docs/jaeger_install.md)
+
 ### Feature:
 
 support component:
